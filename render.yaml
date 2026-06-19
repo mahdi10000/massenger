@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: messenger
+    env: python
+    plan: free
+    pythonVersion: 3.11.7
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8080 app:app
