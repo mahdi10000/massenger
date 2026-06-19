@@ -219,6 +219,5 @@ def handle_call(data):
     }, room=data['to'])
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get('PORT', 8080))
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
