@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlphaMessenger</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Tahoma, Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; }
+
+        /* سایدبار */
+        #sidebar {
+            width: 280px;
+            background: #16213e;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #0f3460;
+        }
+        #sidebar-header {
+            padding: 16px;
+            background: #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #sidebar-header span { font-size: 18px; font-weight: bold; color: #e94560; }
+        #sidebar-header button {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: Tahoma;
+        }
+        #sidebar-header button:hover { color: #e94560; }
+
+        /* تب‌ها */
+        .tabs {
+            display: flex;
+            background: #0f3460;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: #aaa;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active { color: #e94560; border-bottom-color: #e94560; }
+
+        /* لیست چت */
+        #chat-list { flex: 1; overflow-y: auto; }
+        .chat-item {
+            padding: 14px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chat-item:hover { background: #0f3460; }
+        .chat-item.active { background: #0f3460; border-right: 3px solid #e94560; }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e94560;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .chat-info { flex: 1; }
+        .chat-name { font-size: 14px; font-weight: bold; }
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2ecc71;
+        }
+
+        /* دکمه ساخت گروه */
+        .new-btn {
+            margin: 10px;
+            padding: 10px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: Tahoma;
+            font-size: 13px;
+        }
+        .new-btn:hover { background: #c73652; }
+
+        /* ناحیه چت */
+        #chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-header {
+            padding: 16px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #chat-header .name { font-size: 16px; font-weight: bold; }
+        #chat-header .status { font-size: 12px; color: #2ecc71; }
+
+        /* پیام‌ها */
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .msg {
+            max-width: 65%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .msg.mine {
+            background: #e94560;
+            align-self: flex-end;
+            border-bottom-left-radius: 4px;
+        }
+        .msg.other {
+            background: #16213e;
+            align-self: flex-start;
+            border-bottom-right-radius: 4px;
+        }
+        .msg .meta {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 4px;
+        }
+        .msg .time {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            text-align: left;
+            margin-top: 4px;
+        }
+
+        /* ورودی پیام */
+        #input-area {
+            padding: 16px;
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            display: flex;
+            gap: 10px;
+        }
+        #msg-input {
+            flex: 1;
+            padding: 12px 16px;
+            background: #0f3460;
+            border: 1px solid #0f3460;
+            border-radius: 24px;
+            color: #fff;
+            font-size: 14px;
+            font-family: Tahoma;
+        }
+        #msg-input:focus { outline: none; border-color: #e94560; }
+        #send-btn {
+            padding: 12px 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        #send-btn:hover { background: #c73652; }
+
+        /* صفحه خوش‌آمد */
+        #welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #555;
+        }
+        #welcome .icon { font-size: 80px; margin-bottom: 20px; }
+        #welcome p { font-size: 18px; }
+
+        /* مودال گروه */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal.show { display: flex; }
+        .modal-box {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 16px;
+            width: 320px;
+        }
+        .modal-box h3 { margin-bottom: 20px; color: #e94560; }
+        .modal-box input {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0f3460;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            color: #fff;
+            font-family: Tahoma;
+            margin-bottom: 12px;
+        }
+        .modal-box label { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+        .modal-btns { display: flex; gap: 10px; }
+        .modal-btns button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: Tahoma;
+        }
+        .btn-confirm { background: #e94560; color: white; }
+        .btn-cancel { background: #0f3460; color: #aaa; }
+
+        /* تایپینگ */
+        #typing-indicator { padding: 4px 20px; font-size: 12px; color: #aaa; height: 20px; }
+
+        #chat-area { display: none; }
+        #chat-area.active { display: flex; }
+        #welcome.hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- سایدبار -->
+<div id="sidebar">
+    <div id="sidebar-header">
+        <span>💬 Alpha</span>
+        <button onclick="logout()">خروج</button>
+    </div>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('contacts')">مخاطبین</div>
+        <div class="tab" onclick="switchTab('groups')">گروه‌ها</div>
+        <div class="tab" onclick="switchTab('channels')">کانال‌ها</div>
+    </div>
+    <div id="chat-list"></div>
+    <button class="new-btn" id="new-btn" onclick="showModal()">+ گروه / کانال جدید</button>
+</div>
+
+<!-- ناحیه چت -->
+<div id="welcome">
+    <div class="icon">💬</div>
+    <p>یه مکالمه انتخاب کن</p>
+</div>
+
+<div id="chat-area">
+    <div id="chat-header">
+        <div class="avatar" id="chat-avatar">👤</div>
+        <div>
+            <div class="name" id="chat-name"></div>
+            <div class="status" id="chat-status"></div>
+        </div>
+    </div>
+    <div id="messages"></div>
+    <div id="typing-indicator"></div>
+    <div id="input-area">
+        <input type="text" id="msg-input" placeholder="پیام بنویس..." onkeydown="onKey(event)">
+        <button id="send-btn" onclick="sendMessage()">➤</button>
+    </div>
+</div>
+
+<!-- مودال گروه/کانال -->
+<div class="modal" id="modal">
+    <div class="modal-box">
+        <h3>گروه / کانال جدید</h3>
+        <input type="text" id="group-name" placeholder="اسم گروه یا کانال">
+        <label>
+            <input type="checkbox" id="is-channel">
+            کانال باشه (فقط ادمین پست بذاره)
+        </label>
+        <div class="modal-btns">
+            <button class="btn-confirm" onclick="createGroup()">بساز</button>
+            <button class="btn-cancel" onclick="hideModal()">انصراف</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const socket = io();
+const MY_ID = "{{ session['user_id'] }}";
+const MY_NAME = "{{ session['username'] }}";
+
+let currentChat = null;
+let currentType = null;
+let currentTab = 'contacts';
+let typingTimer = null;
+
+// ===== لود مخاطبین/گروه‌ها =====
+
+async function loadContacts() {
+    const res = await fetch('/api/contacts');
+    const data = await res.json();
+    const list = document.getElementById('chat-list');
+    list.innerHTML = '';
+    data.contacts.forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'chat-item';
+        div.dataset.id = u.id;
+        div.onclick = () => openChat(u.id, 'private', u.username);
+        div.innerHTML = `
+            <div class="avatar">👤</div>
+            <div class="chat-info">
+                <div class="chat-name">${u.username}</div>
+            </div>
+            ${u.online ? '<div class="online-dot"></div>' : ''}
+        `;
+        list.appendChild(div);
+    });
+}
+
+async function loadGroups(isChannel) {
+    const res = await fetch('/api/groups');
+    const data = await res.json();
+    const list = document.getElementById('chat-list');
+    list.innerHTML = '';
+    data.groups
+        .filter(g => g.is_channel === isChannel)
+        .forEach(g => {
+            const div = document.createElement('div');
+            div.className = 'chat-item';
+            div.dataset.id = g.id;
+            div.onclick = () => openChat(g.id, 'group', g.name);
+            div.innerHTML = `
+                <div class="avatar">${isChannel ? '📢' : '👥'}</div>
+                <div class="chat-info">
+                    <div class="chat-name">${g.name}</div>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+}
+
+function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['contacts','groups','channels'][i] === tab);
+    });
+    document.getElementById('new-btn').style.display = tab === 'contacts' ? 'none' : 'block';
+    if (tab === 'contacts') loadContacts();
+    else if (tab === 'groups') loadGroups(false);
+    else loadGroups(true);
+}
+
+// ===== باز کردن چت =====
+
+async function openChat(id, type, name) {
+    currentChat = id;
+    currentType = type;
+
+    document.getElementById('welcome').classList.add('hidden');
+    document.getElementById('chat-area').classList.add('active');
+    document.getElementById('chat-name').textContent = name;
+    document.getElementById('chat-avatar').textContent = type === 'private' ? '👤' : (type === 'channel' ? '📢' : '👥');
+    document.getElementById('chat-status').textContent = '';
+
+    document.querySelectorAll('.chat-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === id);
+    });
+
+    const res = await fetch(`/api/messages/${type}/${id}`);
+    const data = await res.json();
+    const msgs = document.getElementById('messages');
+    msgs.innerHTML = '';
+    data.messages.forEach(addMessage);
+    msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ===== ارسال پیام =====
+
+function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const content = input.value.trim();
+    if (!content || !currentChat) return;
+
+    const payload = { content };
+    if (currentType === 'private') payload.receiver_id = currentChat;
+    else payload.group_id = currentChat;
+
+    socket.emit('send_message', payload);
+    input.value = '';
+}
+
+function onKey(e) {
+    if (e.key === 'Enter') sendMessage();
+    else {
+        if (currentType === 'private') {
+            socket.emit('typing', { to: currentChat });
+        }
+    }
+}
+
+// ===== دریافت پیام =====
+
+socket.on('new_message', (msg) => {
+    if (
+        (currentType === 'private' && (msg.sender_id === currentChat || msg.sender_id === MY_ID)) ||
+        (currentType === 'group')
+    ) {
+        addMessage(msg);
+        document.getElementById('messages').scrollTop = 99999;
+    }
+});
+
+function addMessage(msg) {
+    const div = document.createElement('div');
+    const isMine = msg.sender_id === MY_ID;
+    div.className = `msg ${isMine ? 'mine' : 'other'}`;
+    div.innerHTML = `
+        ${!isMine ? `<div class="meta">${msg.sender}</div>` : ''}
+        ${msg.content}
+        <div class="time">${msg.time}</div>
+    `;
+    document.getElementById('messages').appendChild(div);
+}
+
+// ===== آنلاین/آفلاین =====
+
+socket.on('user_online', ({ user_id }) => {
+    if (currentChat === user_id) {
+        document.getElementById('chat-status').textContent = 'آنلاین';
+    }
+});
+
+socket.on('user_offline', ({ user_id }) => {
+    if (currentChat === user_id) {
+        document.getElementById('chat-status').textContent = '';
+    }
+});
+
+// ===== تایپینگ =====
+
+socket.on('typing', ({ from }) => {
+    const el = document.getElementById('typing-indicator');
+    el.textContent = `${from} در حال تایپ...`;
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => el.textContent = '', 2000);
+});
+
+// ===== گروه/کانال =====
+
+function showModal() { document.getElementById('modal').classList.add('show'); }
+function hideModal() { document.getElementById('modal').classList.remove('show'); }
+
+async function createGroup() {
+    const name = document.getElementById('group-name').value.trim();
+    const isChannel = document.getElementById('is-channel').checked;
+    if (!name) return;
+    await fetch('/api/create_group', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, is_channel: isChannel })
+    });
+    hideModal();
+    document.getElementById('group-name').value = '';
+    switchTab(isChannel ? 'channels' : 'groups');
+}
+
+function logout() { window.location.href = '/logout'; }
+
+// ===== شروع =====
+loadContacts();
+</script>
+</body>
+</html>
